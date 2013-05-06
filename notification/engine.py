@@ -7,7 +7,8 @@ import cPickle as pickle
 
 from django.conf import settings
 from django.core.mail import mail_admins
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+
 from django.contrib.sites.models import Site
 
 from notification.lockfile import FileLock, AlreadyLocked, LockTimeout
@@ -19,13 +20,16 @@ from notification import models as notification
 # default behavior is to never wait for the lock to be available.
 LOCK_WAIT_TIMEOUT = getattr(settings, "NOTIFICATION_LOCK_WAIT_TIMEOUT", -1)
 
+# Django 1.5 custom user model support
+User = get_user_model()
+
 
 def send_all(*args):
     if len(args) == 1:
         lock = FileLock(args[0])
     else:
         lock = FileLock("send_notices")
-    
+
     logging.debug("acquiring lock...")
     try:
         lock.acquire(LOCK_WAIT_TIMEOUT)
@@ -36,10 +40,10 @@ def send_all(*args):
         logging.debug("waiting for the lock timed out. quitting.")
         return
     logging.debug("acquired.")
-    
+
     batches, sent, sent_actual = 0, 0, 0
     start_time = time.time()
-    
+
     try:
         # nesting the try statement to be Python 2.4
         try:
@@ -86,7 +90,7 @@ def send_all(*args):
         logging.debug("releasing lock...")
         lock.release()
         logging.debug("released.")
-    
+
     logging.info("")
     logging.info("{} batches, {} sent".format(batches, sent,))
     logging.info("done in {:.2f} seconds".format(time.time() - start_time))
